@@ -25,19 +25,20 @@ import java.util.Objects;
  * @author Koji Usoki
  */
 public final class Krypto {
-    private final String referenceKey;
 
-    private static int blockSize = 16;
-    private static int keySize = 256;
-    private static String ivPath = "krypto/iv";
-    private static String secretPath = "krypto/secret";
+    private static int BLOCK_SIZE = 16;
+    private static int KEY_SIZE = 256;
+    private static String IV_PATH = "krypto/iv";
+    private static String SECRET_PATH = "krypto/secret";
 
-    private static String defaultReferenceKey = "default";
+    private static String DEFAULT_REFERENCE_KEY = "default";
 
     private static final String AES_METHOD = "AES/CBC/PKCS5Padding";
 
     private static boolean allowNullInput = true;
     private static boolean safeMode = false;
+
+    private final String referenceKey;
 
     public static final class Configurator {
         public Configurator() { }
@@ -47,7 +48,7 @@ public final class Krypto {
          * @param blockSize the block size
          */
         public Configurator setBlockSize(final int blockSize) {
-            Krypto.blockSize = blockSize;
+            Krypto.BLOCK_SIZE = blockSize;
 
             return this;
         }
@@ -58,7 +59,7 @@ public final class Krypto {
          * @param keySize the key size
          */
         public Configurator setKeySize(final int keySize) {
-            Krypto.keySize = keySize;
+            Krypto.KEY_SIZE = keySize;
 
             return this;
         }
@@ -69,7 +70,7 @@ public final class Krypto {
          * @param ivPath the iv path
          */
         public Configurator setIvPath(final String ivPath) {
-            Krypto.ivPath = ivPath;
+            Krypto.IV_PATH = ivPath;
 
             return this;
         }
@@ -80,7 +81,7 @@ public final class Krypto {
          * @param secretPath the secret path
          */
         public Configurator setSecretPath(final String secretPath) {
-            Krypto.secretPath = secretPath;
+            Krypto.SECRET_PATH = secretPath;
 
             return this;
         }
@@ -115,7 +116,7 @@ public final class Krypto {
          * @param defaultReferenceKey the global reference key
          */
         public Configurator setGlobalReferenceKey(final String defaultReferenceKey) {
-            Krypto.defaultReferenceKey = defaultReferenceKey;
+            Krypto.DEFAULT_REFERENCE_KEY = defaultReferenceKey;
 
             return this;
         }
@@ -131,28 +132,28 @@ public final class Krypto {
     }
 
     private static IvParameterSpec getGuildIvParameter(final String referenceKey) throws IOException {
-        try (FileInputStream fis = new FileInputStream(ivPath + "/" + referenceKey + ".dat")) {
+        try (FileInputStream fis = new FileInputStream(IV_PATH + "/" + referenceKey + ".dat")) {
             return new IvParameterSpec(fis.readAllBytes());
         } catch (FileNotFoundException exception){
-            final byte[] iv = new byte[blockSize];
+            final byte[] iv = new byte[BLOCK_SIZE];
 
             new SecureRandom().nextBytes(iv);
 
-            saveToFile(ivPath+"/" + referenceKey + ".dat", iv);
+            saveToFile(IV_PATH +"/" + referenceKey + ".dat", iv);
 
             return new IvParameterSpec(iv);
         }
     }
 
     private static SecretKey getGuildSecretKey(final String referenceKey) throws IOException, NoSuchAlgorithmException {
-        try (FileInputStream secretKeyFile = new FileInputStream(secretPath + "/" + referenceKey + ".dat")) {
+        try (FileInputStream secretKeyFile = new FileInputStream(SECRET_PATH + "/" + referenceKey + ".dat")) {
             return new SecretKeySpec(secretKeyFile.readAllBytes(), "AES");
         }catch (FileNotFoundException exception) {
             final KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-            keyGenerator.init(keySize);
+            keyGenerator.init(KEY_SIZE);
 
             final SecretKey secretKey = keyGenerator.generateKey();
-            saveToFile(secretPath +"/" + referenceKey + ".dat", secretKey.getEncoded());
+            saveToFile(SECRET_PATH +"/" + referenceKey + ".dat", secretKey.getEncoded());
 
             return secretKey;
         }
@@ -179,7 +180,7 @@ public final class Krypto {
      * @throws EncryptionFailed the encryption failed
      */
     public static String defaultEncrypt(final Object input) throws EncryptionFailed {
-        return Krypto.encrypt(defaultReferenceKey, input);
+        return Krypto.encrypt(DEFAULT_REFERENCE_KEY, input);
     }
 
     /**
@@ -190,7 +191,7 @@ public final class Krypto {
      * @throws DecryptionFailed the encryption failed
      */
     public static String defaultDecrypt(final Object input) throws DecryptionFailed {
-        return Krypto.decrypt(defaultReferenceKey, input);
+        return Krypto.decrypt(DEFAULT_REFERENCE_KEY, input);
     }
 
     /**
@@ -201,7 +202,7 @@ public final class Krypto {
      * @throws EncryptionFailed the encryption failed
      */
     public static List<String> defaultEncrypt(final List<String> input) throws EncryptionFailed {
-        return Krypto.encrypt(defaultReferenceKey, input);
+        return Krypto.encrypt(DEFAULT_REFERENCE_KEY, input);
     }
 
     /**
@@ -212,7 +213,7 @@ public final class Krypto {
      * @throws DecryptionFailed the decryption failed
      */
     public static List<String> defaultDecrypt(final List<String> input) throws DecryptionFailed {
-        return Krypto.decrypt(defaultReferenceKey, input);
+        return Krypto.decrypt(DEFAULT_REFERENCE_KEY, input);
     }
 
     /**
@@ -267,6 +268,9 @@ public final class Krypto {
      * @throws EncryptionFailed the encryption failed
      */
     public static String encrypt(final String referenceKey, final Object input) throws EncryptionFailed {
+        if (referenceKey == null)
+            throw new EncryptionFailed("Reference key cannot be null.");
+
         try {
             final IvParameterSpec ivParameterSpec = getGuildIvParameter(referenceKey);
             final SecretKey secretkey = getGuildSecretKey(referenceKey);
@@ -316,6 +320,9 @@ public final class Krypto {
      * @throws DecryptionFailed the decryption failed
      */
     public static String decrypt(final String referenceKey, final Object input) throws DecryptionFailed {
+        if (referenceKey == null)
+            throw new DecryptionFailed("Reference key cannot be null.");
+
         try {
             final IvParameterSpec ivParameterSpec = getGuildIvParameter(referenceKey);
             final SecretKey secretkey = getGuildSecretKey(referenceKey);
